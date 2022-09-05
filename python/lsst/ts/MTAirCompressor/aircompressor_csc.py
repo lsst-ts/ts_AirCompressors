@@ -83,6 +83,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             simulation_mode=simulation_mode,
         )
 
+        self.grace_period = self.host = self.port = self.unit = None
+
         self.connection = None
         self.model = None
         self.simulator = None
@@ -181,8 +183,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
     async def close_tasks(self) -> None:
         await super().close_tasks()
         if self.simulation_mode == 1:
-            await self.simulator.shutdown()
-            await self.simulator_future.cancel()
+            self.simulator.shutdown()
+            self.simulator_task.cancel()
         self.poll_task.cancel()
         await self.disconnect()
 
@@ -268,10 +270,19 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
     async def do_reset(self, data):
         """Reset compressor faults."""
-        self.model.reset()
+        self.assert_enabled()
+        try:
+            self.model.reset()
+        except ModbusError as ex:
+            if ex.exception.original_code & 0x10 == 0x10:
+                raise RuntimeError(
+                    "Compressor isn't in remote mode - cannot reset errors"
+                )
+            await self.log_modbus_error(ex, "Cannot reset compressor's errors")
 
     async def do_powerOn(self, data):
         """Powers on compressor."""
+        self.assert_enabled()
         try:
             self.model.power_on()
         except ModbusError as ex:
@@ -282,6 +293,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             await self.log_modbus_error(ex, "Cannot power on compressor")
 
     async def do_powerOff(self, data):
+        self.assert_enabled()
         try:
             self.model.power_off()
         except ModbusError as ex:

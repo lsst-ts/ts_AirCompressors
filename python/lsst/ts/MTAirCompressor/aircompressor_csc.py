@@ -40,6 +40,18 @@ from .config_schema import CONFIG_SCHEMA
 from .enums import ErrorCode
 from .simulator import create_server
 
+from .utils import status_bit_to_bools
+
+
+"""Telemetry period. Telemetry shall be reported every n seconds."""
+POLL_PERIOD = 1
+
+"""Sleep for this number of seconds before reconnecting."""
+SLEEP_RECONNECT = 5
+
+"""Sleep for this number of seconds after catching an exception."""
+SLEEP_EXCEPTION = 2
+
 
 class MTAirCompressorCsc(salobj.ConfigurableCsc):
     """MTAirCompressor CsC
@@ -83,7 +95,10 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             simulation_mode=simulation_mode,
         )
 
-        self.grace_period = self.host = self.port = self.unit = None
+        self.grace_period = None
+        self.host = None
+        self.port = None
+        self.unit = None
 
         self.connection = None
         self.model = None
@@ -139,42 +154,28 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         cls.unit = args.unit
 
     async def configure(self, config):
-        self.config = config
-        ci = list(
-            filter(
-                lambda i: i["sal_index"] == self.salinfo.index, self.config.instances
-            )
-        )
-        if len(ci) == 0:
+        instance = [i for i in config.instances if i["sal_index"] == self.salinfo.index]
+        if len(instance) == 0:
             raise RuntimeError(
                 f"Cannot find configuration for index {self.salinfo.index},"
                 "at least sal_index entry must be provided"
             )
-        elif len(ci) > 1:
+        elif len(instance) > 1:
             raise RuntimeError(
                 f"Multiple configuration instances matches index {self.salinfo.index},"
                 "please check configuration file"
             )
-        else:
-            ci = ci[0]
+        instance = instance[0]
         if self.grace_period is None:
-            self.grace_period = ci.get("grace_period")
-            if self.grace_period is None:
-                self.grace_period = 3600
+            self.grace_period = instance.get("grace_period", 3600)
         if self.host is None:
-            self.host = ci.get("hosta")
-            if self.host is None:
-                self.host = f"m1m3cam-aircomp{self.salinfo.index:02d}.cp.lsst.org"
-
+            self.host = instance.get(
+                "host", f"m1m3cam-aircomp{self.salinfo.index:02d}.cp.lsst.org"
+            )
         if self.port is None:
-            self.port = ci.get("port")
-            if self.port is None:
-                self.port = 502
-
+            self.port = instance.get("port", 502)
         if self.unit is None:
-            self.unit = ci.get("unit")
-            if self.unit is None:
-                self.unit = self.salinfo.index
+            self.unit = instance.get("unit", self.salinfo.index)
 
     @staticmethod
     def get_config_pkg():
@@ -309,7 +310,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         status = self.model.get_status()
 
         await self.evt_status.set_write(
-            **_status_bits(
+            **status_bit_to_bools(
                 [
                     "readyToStart",
                     "operating",
@@ -327,7 +328,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 ],
                 status[0],
             ),
-            **_status_bits(
+            **status_bit_to_bools(
                 [
                     "startByRemote",
                     "startWithTimerControl",
@@ -346,7 +347,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         errorsWarnings = self.model.get_error_registers()
 
         await self.evt_errors.set_write(
-            **_status_bits(
+            **status_bit_to_bools(
                 [
                     "powerSupplyFailureE400",
                     "emergencyStopActivatedE401",
@@ -367,11 +368,11 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 ],
                 errorsWarnings[0],
             ),
-            **_status_bits(
+            **status_bit_to_bools(
                 ["heavyStartupE416"],
                 errorsWarnings[1],
             ),
-            **_status_bits(
+            **status_bit_to_bools(
                 [
                     "preAdjustmentVSDE500",
                     "preAdjustmentE501",
@@ -390,7 +391,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         )
 
         await self.evt_warnings.set_write(
-            **_status_bits(
+            **status_bit_to_bools(
                 [
                     "serviceDueA600",
                     "dischargeOverPressureA601",
@@ -411,7 +412,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 ],
                 errorsWarnings[8],
             ),
-            **_status_bits(
+            **status_bit_to_bools(
                 [
                     "motorLuricationSystemA616",
                     "input1A617",
@@ -424,7 +425,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 ],
                 errorsWarnings[9],
             ),
-            **_status_bits(
+            **status_bit_to_bools(
                 ["temperatureHighVSDA700"],
                 errorsWarnings[14],
             ),
@@ -522,47 +523,21 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 else:
                     self.log.critical(f"Unhandled state: {self.summary_state}")
 
-                await asyncio.sleep(1)
+                await asyncio.sleep(POLL_PERIOD)
 
             except ModbusError as er:
                 await self.log_modbus_error(er, "While reconnecting:")
                 await self.disconnect()
-                await asyncio.sleep(5)
+                await asyncio.sleep(SLEEP_RECONNECT)
             except Exception as ex:
                 self.log.exception(f"Exception in poll loop: {str(ex)}")
                 await self.disconnect()
-                await asyncio.sleep(2)
+                await asyncio.sleep(SLEEP_EXCEPTION)
 
             if self.summary_state == salobj.State.FAULT:
                 await self.disconnect()
                 # end loop
                 return
-
-
-def _status_bits(fields, value):
-    """Helper function. Converts value bits into boolean fields.
-
-    Parameters
-    ----------
-    fields : [`str`]
-        Name of fields to extract. Corresponds to bits in value, with lowest
-        (0x0001) first. Can be None to specify this bit doesn't have any
-        meaning.
-    value : `int`
-        Bit-masked value. Bits corresponds to named values in fields.
-
-    Returns
-    -------
-    bits : {`str` : `bool`}
-        Map where keys are values passed in fields and values are booleans
-        corresponding to whenever that bit is set.
-    """
-    ret = {}
-    for field in fields:
-        if field is not None:
-            ret[field] = value & 0x0001
-        value >>= 1
-    return ret
 
 
 def run_mtaircompressor() -> None:

@@ -21,7 +21,7 @@
 
 __all__ = ["create_server"]
 
-from pymodbus.server.sync import ModbusTcpServer
+from pymodbus.server.async_io import ModbusTcpServer
 from pymodbus.datastore import (
     ModbusSequentialDataBlock,
     ModbusSlaveContext,
@@ -60,4 +60,6 @@ def create_server():
     store = ModbusSlaveContext(hr=SimulatedHrBlock())
     context = ModbusServerContext(slaves=store, single=True)
 
-    return ModbusTcpServer(context, address=("localhost", 0))
+    return ModbusTcpServer(
+        context, address=("", 0), reuse_address=True, reuse_port=True
+    )

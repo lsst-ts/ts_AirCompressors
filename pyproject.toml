@@ -9,7 +9,7 @@ license = { text = "GPL" }
 classifiers = [ "Programming Language :: Python :: 3" ]
 urls = { documentation = "https://jira.lsstcorp.org/secure/Dashboard.jspa", repository = "https://github.com/lsst-ts/ts_MTAirCompressor" }
 dynamic = [ "version" ]
-dependencies = [ "pymodbus<3.0.0" ]
+dependencies = [ "pymodbus>=3.0.0", "pyserial-asyncio" ]
 
 [project.scripts]
 run_mtaircompressor = "lsst.ts.MTAirCompressor.aircompressor_csc:run_mtaircompressor"

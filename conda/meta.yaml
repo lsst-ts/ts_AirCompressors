@@ -19,7 +19,7 @@ test:
     - ts-idl {{ idl_version }}
     - ts-salobj {{ salobj_version }}
     - ts-utils
-    - pymodbus
+    - pymodbus 2.5.3
   source_files:
     - python
     - tests
@@ -42,4 +42,4 @@ requirements:
     - ts-salobj
     - ts-idl
     - ts-utils
-    - pymodbus
+    - pymodbus 2.5.3

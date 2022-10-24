@@ -36,19 +36,39 @@ from lsst.ts import salobj, utils
 
 from . import __version__
 from .aircompressor_model import MTAirCompressorModel, ModbusError
+from .config_schema import CONFIG_SCHEMA
 from .enums import ErrorCode
 from .simulator import create_server
 
+from .utils import status_bit_to_bools
 
-class MTAirCompressorCsc(salobj.BaseCsc):
+
+"""Telemetry period. Telemetry shall be reported every n seconds."""
+POLL_PERIOD = 1
+
+"""Sleep for this number of seconds before reconnecting."""
+SLEEP_RECONNECT = 5
+
+"""Sleep for this number of seconds after catching an exception."""
+SLEEP_EXCEPTION = 2
+
+
+class MTAirCompressorCsc(salobj.ConfigurableCsc):
     """MTAirCompressor CsC
 
     Parameters
     ----------
     index : `int`
         CSC index.
+    config_dir : `str` (optional)
+        Directory of configuration files, or None for the standard
+        configuration directory (obtained from `get_default_config_dir`).
+        This is provided for unit testing.
     initial_state : `lsst.ts.salobj.State`
         CSC initial state.
+    override : `str`, optional
+        Configuration override file to apply if ``initial_state`` is
+        `State.DISABLED` or `State.ENABLED`.
     simulation_mode : `int`
         CSC simulation mode. 0 - no simulation, 1 - software simulation (no
         mock modbus needed).
@@ -60,17 +80,25 @@ class MTAirCompressorCsc(salobj.BaseCsc):
     def __init__(
         self,
         index: int,
+        config_dir: str = None,
         initial_state=salobj.State.DISABLED,
-        simulation_mode: int = 0,
+        override: str = "",
+        simulation_mode: valid_simulation_modes = 0,
     ):
         super().__init__(
             name="MTAirCompressor",
             index=index,
+            config_schema=CONFIG_SCHEMA,
+            config_dir=config_dir,
             initial_state=initial_state,
+            override=override,
             simulation_mode=simulation_mode,
         )
 
-        self.grace_period = 600  # TODO should be configurable - DM-35280
+        self.grace_period = None
+        self.host = None
+        self.port = None
+        self.unit = None
 
         self.connection = None
         self.model = None
@@ -79,9 +107,6 @@ class MTAirCompressorCsc(salobj.BaseCsc):
         # True if compressor can be started remotely. Used before start command
         # is issued to clearly indicate the problem
         self._start_by_remote: bool = False
-        # If True, status update is in progress.
-        # TODO Will be deprecated and removed in DM-35280
-        self._status_update: bool = False
         # This will be reseted to None only after connection is properly
         # re-established.  Don't reset it in def connect, as it is needed in
         # poll_loop to report time waiting for reconnection. None when not
@@ -92,18 +117,26 @@ class MTAirCompressorCsc(salobj.BaseCsc):
 
     @classmethod
     def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
-        """Adds custom --hostname, --port and --unit arguments."""
+        """Adds custom --grace-period, --host, --port and --unit arguments."""
         parser.add_argument(
-            "--hostname",
+            "--grace-period",
+            type=int,
+            default=None,
+            help="TCP/IP connection grace period in seconds. Default to 60 minutes (3600 seconds)",
+        )
+        parser.add_argument(
+            "--host",
             type=str,
             default=None,
-            help="hostname. Unless specified, m1m3cam-aircomp0X.cp.lsst.org, where X is compressor index",
+            help="hostname of the compressor ModbusRTU/TCP convertor."
+            "Unless specified, m1m3cam-aircomp0X.cp.lsst.org, where X is compressor index",
         )
         parser.add_argument(
             "--port",
             type=int,
-            default=502,
-            help="TCP/IP port. Defaults to 502 (default Modbus TCP/IP port)",
+            default=None,
+            help="TCP/IP port of the compressor ModbusRTU/TCP convertor."
+            "Defaults to 502 (default Modbus TCP/IP port)",
         )
         parser.add_argument(
             "--unit", type=int, default=None, help="modbus unit address"
@@ -113,14 +146,40 @@ class MTAirCompressorCsc(salobj.BaseCsc):
     def add_kwargs_from_args(
         cls, args: argparse.Namespace, kwargs: typing.Dict[str, typing.Any]
     ) -> None:
-        """Process custom --hostname, --port and --unit arguments."""
-        cls.hostname = (
-            f"m1m3cam-aircomp{kwargs['index']:02d}.cp.lsst.org"
-            if args.hostname is None
-            else args.hostname
-        )
+        """Process custom --grace-period, --host, --port and --unit
+        arguments."""
+        cls.grace_period = args.grace_period
+        cls.host = args.host
         cls.port = args.port
-        cls.unit = kwargs["index"] if args.unit is None else args.unit
+        cls.unit = args.unit
+
+    async def configure(self, config):
+        instance = [i for i in config.instances if i["sal_index"] == self.salinfo.index]
+        if len(instance) == 0:
+            raise RuntimeError(
+                f"Cannot find configuration for index {self.salinfo.index},"
+                "at least sal_index entry must be provided"
+            )
+        elif len(instance) > 1:
+            raise RuntimeError(
+                f"Multiple configuration instances matches index {self.salinfo.index},"
+                "please check configuration file"
+            )
+        instance = instance[0]
+        if self.grace_period is None:
+            self.grace_period = instance.get("grace_period", 3600)
+        if self.host is None:
+            self.host = instance.get(
+                "host", f"m1m3cam-aircomp{self.salinfo.index:02d}.cp.lsst.org"
+            )
+        if self.port is None:
+            self.port = instance.get("port", 502)
+        if self.unit is None:
+            self.unit = instance.get("unit", self.salinfo.index)
+
+    @staticmethod
+    def get_config_pkg():
+        return "ts_config_mttcs"
 
     async def close_tasks(self) -> None:
         await super().close_tasks()
@@ -162,27 +221,22 @@ class MTAirCompressorCsc(salobj.BaseCsc):
 
     async def connect(self):
         if self.connection is None:
-            self.connection = ModbusClient(self.hostname, self.port)
+            self.connection = ModbusClient(self.host, self.port)
         ret = self.connection.connect()
         if ret is False:
             raise ModbusError(
                 pymodbus.exceptions.ConnectionException(
-                    f"Cannot establish connection to {self.hostname}:{self.port}"
+                    f"Cannot establish connection to {self.host}:{self.port}"
                 )
             )
         if self.model is None:
             self.model = MTAirCompressorModel(self.connection, self.unit)
+        await self.evt_connectionStatus.set_write(connected=True)
         await self.update_compressor_info()
-        self.log.debug(f"Connected to {self.hostname}:{self.port}")
-
-        if self._failed_tai is not None:
-            self.log.info(
-                "Compressor connection is back after "
-                f"{utils.current_tai() - self._failed_tai:.1f} seconds"
-            )
-            self._failed_tai = None
+        self.log.info(f"Connected to {self.host}:{self.port}")
 
     async def disconnect(self):
+        await self.evt_connectionStatus.set_write(connected=False)
         self.model = None
         if self.connection is not None:
             self.connection.close()
@@ -197,7 +251,7 @@ class MTAirCompressorCsc(salobj.BaseCsc):
             # Returned ModbusTcpServer is subclass of
             # socketserver.ThreadingTCPServer socketserver.ThreadingTCPServer
             # stores address and host in server_address local variable.
-            self.hostname, self.port = self.simulator.server_address
+            self.host, self.port = self.simulator.server_address
 
             executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
             self.simulator_task = asyncio.get_running_loop().run_in_executor(
@@ -212,57 +266,43 @@ class MTAirCompressorCsc(salobj.BaseCsc):
             await self.log_modbus_error(er, "Starting up:", True)
             return
 
-    async def end_enable(self, data):
-        """Power on compressor after switching to enable state.
-
-        Raise exception if compressor cannot be powered on. Ignore state
-        transition triggered by auto update.
-
-        Raises
-        ------
-        ModbusError
-            On Modbus error."""
-        if self._status_update:
-            return
-        if not self._start_by_remote:
-            # This can happens when compressor isn't ready to be started up
-            # as it is being powered down, and first power down sequence must
-            # be finished.
-            raise RuntimeError(
-                "Compressor isn't in remote mode - cannot be powered on remotely"
-            )
-
-        try:
-            self.model.power_on()
-        except ModbusError as ex:
-            await self.log_modbus_error(ex, "Cannot power on compressor")
-
-    async def begin_disable(self, data):
-        """Power off compressor before switching to disable state.
-
-        Ignore state transition triggered by auto update.
-
-        Raises
-        ------
-        ModbusError
-            On Modbus error."""
-        if self._status_update:
-            return
-        try:
-            self.model.power_off()
-        except ModbusError as ex:
-            try:
-                if ex.exception.original_code & 0x10 == 0x10:
-                    raise RuntimeError(
-                        "Compressor isn't in remote mode - cannot be powered off"
-                    )
-            except AttributeError:
-                pass
-            await self.log_modbus_error(ex, "Cannot power off compressor")
+    async def begin_standby(self, data):
+        await self.close_tasks()
 
     async def do_reset(self, data):
         """Reset compressor faults."""
-        self.model.reset()
+        self.assert_enabled()
+        try:
+            self.model.reset()
+        except ModbusError as ex:
+            if ex.exception.original_code & 0x10 == 0x10:
+                raise RuntimeError(
+                    "Compressor isn't in remote mode - cannot reset errors"
+                )
+            await self.log_modbus_error(ex, "Cannot reset compressor's errors")
+
+    async def do_powerOn(self, data):
+        """Powers on compressor."""
+        self.assert_enabled()
+        try:
+            self.model.power_on()
+        except ModbusError as ex:
+            if ex.exception.original_code & 0x10 == 0x10:
+                raise RuntimeError(
+                    "Compressor isn't in remote mode - cannot be powered on"
+                )
+            await self.log_modbus_error(ex, "Cannot power on compressor")
+
+    async def do_powerOff(self, data):
+        self.assert_enabled()
+        try:
+            self.model.power_off()
+        except ModbusError as ex:
+            if ex.exception.original_code & 0x10 == 0x10:
+                raise RuntimeError(
+                    "Compressor isn't in remote mode - cannot be powered off"
+                )
+            await self.log_modbus_error(ex, "Cannot power off compressor")
 
     async def update_status(self):
         """Read compressor status - 3 status registers starting from address
@@ -270,7 +310,7 @@ class MTAirCompressorCsc(salobj.BaseCsc):
         status = self.model.get_status()
 
         await self.evt_status.set_write(
-            **_statusBits(
+            **status_bit_to_bools(
                 [
                     "readyToStart",
                     "operating",
@@ -288,7 +328,7 @@ class MTAirCompressorCsc(salobj.BaseCsc):
                 ],
                 status[0],
             ),
-            **_statusBits(
+            **status_bit_to_bools(
                 [
                     "startByRemote",
                     "startWithTimerControl",
@@ -302,28 +342,12 @@ class MTAirCompressorCsc(salobj.BaseCsc):
         )
 
         self._start_by_remote = status[2] & 0x01 == 0x01
-        self._status_update = True
-
-        if status[0] & 0x02 == 0x02:
-            # None can be passed, as begin_enable and begin_disable called from
-            # _do_change_state don't care about its content
-            if self.summary_state != salobj.State.ENABLED:
-                await self.do_enable(None)
-                self.log.info("Auto switched to enabled, as compressor is running")
-        else:
-            if self.summary_state != salobj.State.DISABLED:
-                await self.do_disable(None)
-                self.log.warning(
-                    "Auto switched to disabled, as compressor was powered down"
-                )
-
-        self._status_update = False
 
     async def update_errorsWarnings(self):
         errorsWarnings = self.model.get_error_registers()
 
         await self.evt_errors.set_write(
-            **_statusBits(
+            **status_bit_to_bools(
                 [
                     "powerSupplyFailureE400",
                     "emergencyStopActivatedE401",
@@ -344,11 +368,11 @@ class MTAirCompressorCsc(salobj.BaseCsc):
                 ],
                 errorsWarnings[0],
             ),
-            **_statusBits(
+            **status_bit_to_bools(
                 ["heavyStartupE416"],
                 errorsWarnings[1],
             ),
-            **_statusBits(
+            **status_bit_to_bools(
                 [
                     "preAdjustmentVSDE500",
                     "preAdjustmentE501",
@@ -367,7 +391,7 @@ class MTAirCompressorCsc(salobj.BaseCsc):
         )
 
         await self.evt_warnings.set_write(
-            **_statusBits(
+            **status_bit_to_bools(
                 [
                     "serviceDueA600",
                     "dischargeOverPressureA601",
@@ -388,7 +412,7 @@ class MTAirCompressorCsc(salobj.BaseCsc):
                 ],
                 errorsWarnings[8],
             ),
-            **_statusBits(
+            **status_bit_to_bools(
                 [
                     "motorLuricationSystemA616",
                     "input1A617",
@@ -401,7 +425,7 @@ class MTAirCompressorCsc(salobj.BaseCsc):
                 ],
                 errorsWarnings[9],
             ),
-            **_statusBits(
+            **status_bit_to_bools(
                 ["temperatureHighVSDA700"],
                 errorsWarnings[14],
             ),
@@ -484,12 +508,14 @@ class MTAirCompressorCsc(salobj.BaseCsc):
         while True:
             try:
                 if self._failed_tai is not None:
-                    try:
+                    if self.model is None:
                         await self.connect()
-                    except ModbusError as er:
-                        await self.log_modbus_error(er, "While reconnecting:")
-                        await asyncio.sleep(5)
-                        continue
+                    self.model.get_compressor_info()
+                    self.log.info(
+                        "Compressor connection is back after "
+                        f"{utils.current_tai() - self._failed_tai:.1f} seconds"
+                    )
+                    self._failed_tai = None
                 elif self.disabled_or_enabled:
                     await self.telemetry_loop()
                 elif self.summary_state in (salobj.State.STANDBY, salobj.State.FAULT):
@@ -497,41 +523,21 @@ class MTAirCompressorCsc(salobj.BaseCsc):
                 else:
                     self.log.critical(f"Unhandled state: {self.summary_state}")
 
-                await asyncio.sleep(1)
+                await asyncio.sleep(POLL_PERIOD)
+
+            except ModbusError as er:
+                await self.log_modbus_error(er, "While reconnecting:")
+                await self.disconnect()
+                await asyncio.sleep(SLEEP_RECONNECT)
             except Exception as ex:
                 self.log.exception(f"Exception in poll loop: {str(ex)}")
-                await asyncio.sleep(2)
+                await self.disconnect()
+                await asyncio.sleep(SLEEP_EXCEPTION)
 
             if self.summary_state == salobj.State.FAULT:
                 await self.disconnect()
                 # end loop
                 return
-
-
-def _statusBits(fields, value):
-    """Helper function. Converts value bits into boolean fields.
-
-    Parameters
-    ----------
-    fields : [`str`]
-        Name of fields to extract. Corresponds to bits in value, with lowest
-        (0x0001) first. Can be None to specify this bit doesn't have any
-        meaning.
-    value : `int`
-        Bit-masked value. Bits corresponds to named values in fields.
-
-    Returns
-    -------
-    bits : {`str` : `bool`}
-        Map where keys are values passed in fields and values are booleans
-        corresponding to whenever that bit is set.
-    """
-    ret = {}
-    for f in fields:
-        if f is not None:
-            ret[f] = value & 0x0001
-        value >>= 1
-    return ret
 
 
 def run_mtaircompressor() -> None:

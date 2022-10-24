@@ -23,6 +23,8 @@ __all__ = ["ModbusError", "MTAirCompressorModel"]
 
 import enum
 
+from pymodbus.client.sync import BaseModbusClient
+
 
 class Register(enum.IntEnum):
     """Address of registers of interest.
@@ -99,13 +101,14 @@ class MTAirCompressorModel:
 
     Parameters
     ----------
-    connection : `ModbusClient`
+    host : `str`
         Connection to compresor controller.
+    port : `int`
     unit : `int`
         Compressor unit (address on modbus).
     """
 
-    def __init__(self, connection, unit):
+    def __init__(self, connection: BaseModbusClient, unit: int = 1):
         self.connection = connection
         self.unit = unit
 

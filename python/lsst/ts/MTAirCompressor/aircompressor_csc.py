@@ -23,19 +23,19 @@ __all__ = ["MTAirCompressorCsc", "run_mtaircompressor"]
 
 import argparse
 import asyncio
-import concurrent.futures
+import socket
 import typing
 
 # Async ModbusTcpClient is unrealible. Hopefully that will get fixed with
 # pymodbus 3.0.0 release. Use sync for now.
 # TODO DM-35334
-from pymodbus.client.sync import ModbusTcpClient as ModbusClient
+from pymodbus.client.tcp import AsyncModbusTcpClient as ModbusClient
 import pymodbus.exceptions
 
 from lsst.ts import salobj, utils
 
 from . import __version__
-from .aircompressor_model import MTAirCompressorModel, ModbusError
+from .aircompressor_model import MTAirCompressorModel
 from .config_schema import CONFIG_SCHEMA
 from .enums import ErrorCode
 from .simulator import create_server
@@ -184,13 +184,13 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
     async def close_tasks(self) -> None:
         await super().close_tasks()
         if self.simulation_mode == 1:
-            self.simulator.shutdown()
+            await self.simulator.shutdown()
             self.simulator_task.cancel()
         self.poll_task.cancel()
         await self.disconnect()
 
-    async def log_modbus_error(self, modbus_error, msg="", ignore_timeouts=False):
-        if isinstance(modbus_error.exception, pymodbus.exceptions.ConnectionException):
+    async def log_modbus_exception(self, exception, msg="", ignore_timeouts=False):
+        if isinstance(exception, pymodbus.exceptions.ConnectionException):
             await self.disconnect()
 
         if not ignore_timeouts:
@@ -198,7 +198,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 self._failed_tai is None
                 or utils.current_tai() < self._failed_tai + self.grace_period
             ):
-                self.log.error(str(modbus_error))
+                self.log.error(str(exception))
                 if self._failed_tai is None:
                     self.log.warning(
                         "Lost compressor connection, will try to reconnect for"
@@ -208,27 +208,19 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 return
 
         try:
-            await self.fault(modbus_error.exception.original_code, msg)
+            await self.fault(exception.original_code, msg)
         except AttributeError:
-            if isinstance(
-                modbus_error.exception, pymodbus.exceptions.ConnectionException
-            ):
-                await self.fault(ErrorCode.COULD_NOT_CONNECT, msg + str(modbus_error))
+            if isinstance(exception, pymodbus.exceptions.ConnectionException):
+                await self.fault(ErrorCode.COULD_NOT_CONNECT, msg + str(exception))
             else:
-                await self.fault(ErrorCode.MODBUS_ERROR, msg + str(modbus_error))
+                await self.fault(ErrorCode.MODBUS_ERROR, msg + str(exception))
 
         self._failed_tai = None
 
     async def connect(self):
         if self.connection is None:
             self.connection = ModbusClient(self.host, self.port)
-        ret = self.connection.connect()
-        if ret is False:
-            raise ModbusError(
-                pymodbus.exceptions.ConnectionException(
-                    f"Cannot establish connection to {self.host}:{self.port}"
-                )
-            )
+        await self.connection.connect()
         if self.model is None:
             self.model = MTAirCompressorModel(self.connection, self.unit)
         await self.evt_connectionStatus.set_write(connected=True)
@@ -239,7 +231,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         await self.evt_connectionStatus.set_write(connected=False)
         self.model = None
         if self.connection is not None:
-            self.connection.close()
+            await self.connection.close()
             self.connection = None
 
     async def end_start(self, data):
@@ -248,22 +240,20 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             self.unit = 1
 
             self.simulator = create_server()
-            # Returned ModbusTcpServer is subclass of
-            # socketserver.ThreadingTCPServer socketserver.ThreadingTCPServer
-            # stores address and host in server_address local variable.
-            self.host, self.port = self.simulator.server_address
+            self.simulator_task = asyncio.create_task(self.simulator.serve_forever())
 
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            self.simulator_task = asyncio.get_running_loop().run_in_executor(
-                executor, self.simulator.serve_forever
-            )
+            await self.simulator.serving
+            sock = [
+                s for s in self.simulator.server.sockets if s.family == socket.AF_INET
+            ][0]
+            self.host, self.port = socket.getnameinfo(sock.getsockname(), 0)
 
         try:
             await self.connect()
             if self.poll_task.done():
                 self.poll_task = asyncio.create_task(self.poll_loop())
-        except ModbusError as er:
-            await self.log_modbus_error(er, "Starting up:", True)
+        except pymodbus.exceptions.ModbusException as ex:
+            await self.log_modbus_exception(ex, "Starting up:", True)
             return
 
     async def begin_standby(self, data):
@@ -273,41 +263,47 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         """Reset compressor faults."""
         self.assert_enabled()
         try:
-            self.model.reset()
-        except ModbusError as ex:
-            if ex.exception.original_code & 0x10 == 0x10:
+            await self.model.reset()
+        except pymodbus.exceptions.ModbusIOException as ex:
+            if ex.fcode & 0x10 == 0x10:
                 raise RuntimeError(
                     "Compressor isn't in remote mode - cannot reset errors"
                 )
-            await self.log_modbus_error(ex, "Cannot reset compressor's errors")
+            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
+        except pymodbus.exception.ModbusException as ex:
+            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
 
     async def do_powerOn(self, data):
         """Powers on compressor."""
         self.assert_enabled()
         try:
-            self.model.power_on()
-        except ModbusError as ex:
-            if ex.exception.original_code & 0x10 == 0x10:
+            await self.model.power_on()
+        except pymodbus.exceptions.ModbusIOException as ex:
+            if ex.fcode & 0x10 == 0x10:
                 raise RuntimeError(
                     "Compressor isn't in remote mode - cannot be powered on"
                 )
-            await self.log_modbus_error(ex, "Cannot power on compressor")
+            await self.log_modbus_exception(ex, "Cannot power on compressor")
+        except pymodbus.exception.ModbusException as ex:
+            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
 
     async def do_powerOff(self, data):
         self.assert_enabled()
         try:
-            self.model.power_off()
-        except ModbusError as ex:
-            if ex.exception.original_code & 0x10 == 0x10:
+            await self.model.power_off()
+        except pymodbus.exceptions.ModbusIOException as ex:
+            if ex.fcode & 0x10 == 0x10:
                 raise RuntimeError(
                     "Compressor isn't in remote mode - cannot be powered off"
                 )
-            await self.log_modbus_error(ex, "Cannot power off compressor")
+            await self.log_modbus_exception(ex, "Cannot power off compressor")
+        except pymodbus.exception.ModbusException as ex:
+            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
 
     async def update_status(self):
         """Read compressor status - 3 status registers starting from address
         0x30."""
-        status = self.model.get_status()
+        status = await self.model.get_status()
 
         await self.evt_status.set_write(
             **status_bit_to_bools(
@@ -344,7 +340,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         self._start_by_remote = status[2] & 0x01 == 0x01
 
     async def update_errorsWarnings(self):
-        errorsWarnings = self.model.get_error_registers()
+        errorsWarnings = await self.model.get_error_registers()
 
         await self.evt_errors.set_write(
             **status_bit_to_bools(
@@ -437,7 +433,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         def to_string(arr):
             return "".join(map(chr, arr))
 
-        info = self.model.get_compressor_info()
+        info = await self.model.get_compressor_info()
         await self.evt_compressorInfo.set_write(
             softwareVersion=to_string(info[0:14]),
             serialNumber=to_string(info[14:23]),
@@ -445,7 +441,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
     async def update_analog_data(self):
         """Read compressor analog (telemetry-worth) data."""
-        analog = self.model.get_analog_data()
+        analog = await self.model.get_analog_data()
 
         await self.tel_analogData.set_write(
             force_output=True,
@@ -468,7 +464,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
     async def update_timer(self):
         """Read compressors timers."""
-        timer = self.model.get_timers()
+        timer = await self.model.get_timers()
 
         def to_64(a):
             return a[0] << 16 | a[1]
@@ -498,8 +494,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
                 await asyncio.sleep(1)
 
-        except ModbusError as ex:
-            await self.log_modbus_error(ex)
+        except pymodbus.exceptions.ModbusException as ex:
+            await self.log_modbus_exception(ex)
 
         except Exception as ex:
             await self.fault(1, f"Error in telemetry loop: {str(ex)}")
@@ -510,7 +506,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 if self._failed_tai is not None:
                     if self.model is None:
                         await self.connect()
-                    self.model.get_compressor_info()
+                    await self.model.get_compressor_info()
                     self.log.info(
                         "Compressor connection is back after "
                         f"{utils.current_tai() - self._failed_tai:.1f} seconds"
@@ -525,8 +521,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
                 await asyncio.sleep(POLL_PERIOD)
 
-            except ModbusError as er:
-                await self.log_modbus_error(er, "While reconnecting:")
+            except pymodbus.exceptions.ModbusException as ex:
+                await self.log_modbus_exception(ex, "While reconnecting:")
                 await self.disconnect()
                 await asyncio.sleep(SLEEP_RECONNECT)
             except Exception as ex:

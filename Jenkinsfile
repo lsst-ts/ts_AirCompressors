@@ -82,7 +82,7 @@ pipeline {
                     sh """
                         source /home/saluser/.setup_dev.sh || echo "Loading env failed; continuing..."
                         pip install .
-                        pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT_PATH}
+                        TS_CONFIG_MTTCS_DIR=/home/saluser/repos/ts_config_mttcs/ pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT_PATH}
                     """
                 }
             }
@@ -93,7 +93,7 @@ pipeline {
                     sh """
                         source /home/saluser/.setup_dev.sh || echo "Loading env failed; continuing..."
                         setup -r .
-                        pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT_PATH}
+                        TS_CONFIG_MTTCS_DIR=/home/saluser/repos/ts_config_mttcs/ pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT_PATH}
                     """
                 }
             }

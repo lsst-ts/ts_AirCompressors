@@ -4,11 +4,16 @@
 Version History
 ===============
 
+v1.1.1
+------
+
+* Fix conda dependencies.
+
 v1.1.0
 ------
 
 * Upgrade build to pyproject.toml.
-* Adds errors & warnings events
+* Adds errors & warnings events.
 
 v1.0.2
 ------

@@ -7,7 +7,7 @@ source:
   path: ../
 
 build:
-  script: python -m pip install --no-deps --ignore-installed .
+  script: {{ PYTHON }} -m pip install --no-deps --ignore-installed .
   noarch: generic
   entry_points:
     - run_mtaircompressor = lsst.ts.MTAirCompressor.aircompressor_csc:run_mtaircompressor
@@ -30,16 +30,21 @@ test:
 
 requirements:
   host:
-    - python
+    - python {{ python }}
     - pip
     - setuptools_scm
     - setuptools
-    - pytest-runner
+  build:
+    - python {{ python }}
+    - setuptools_scm
+    - setuptools
+    - ts-conda-build
+    - pymodbus 2.5.3
   run:
-    - python
+    - python {{ python }}
     - setuptools
     - setuptools_scm
-    - ts-salobj
-    - ts-idl
+    - ts-salobj {{ salobj_version }}
+    - ts-idl {{ idl_version }}
     - ts-utils
     - pymodbus 2.5.3

@@ -7,7 +7,8 @@ Version History
 v1.1.1
 ------
 
-* Fix conda dependencies.
+* Fix conda build.
+* Fix CI build.
 
 v1.1.0
 ------

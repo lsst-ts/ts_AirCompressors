@@ -40,34 +40,33 @@ pipeline {
             steps {
                 // When using the docker container, we need to change the HOME path
                 // to WORKSPACE to have the authority to install the packages.
-                withEnv(["HOME=${env.WORKSPACE}"]) {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
                     sh """
-
                         source /home/saluser/.setup_dev.sh || echo "Loading env failed; continuing..."
 
                         # Update base required packages
-                        git config --global --add safe.directory /opt/lsst/tssw/ts_idl
                         cd /home/saluser/repos/ts_idl
                         /home/saluser/.checkout_repo.sh ${WORK_BRANCHES}
                         git pull
 
                         cd /home/saluser/repos/ts_sal
-                        git config --global --add safe.directory /opt/lsst/tssw/ts_sal
                         /home/saluser/.checkout_repo.sh ${WORK_BRANCHES}
                         git pull
 
-                        git config --global --add safe.directory /opt/lsst/tssw/ts_salobj
                         cd /home/saluser/repos/ts_salobj
                         /home/saluser/.checkout_repo.sh ${WORK_BRANCHES}
                         git pull
 
-                        git config --global --add safe.directory /opt/lsst/tssw/ts_utils
                         cd /home/saluser/repos/ts_utils
                         /home/saluser/.checkout_repo.sh ${WORK_BRANCHES}
                         git pull
 
-                        git config --global --add safe.directory /opt/lsst/tssw/ts_xml
                         cd /home/saluser/repos/ts_xml
+                        /home/saluser/.checkout_repo.sh ${WORK_BRANCHES}
+                        git pull
+
+                        # Update additional required packages
+                        cd /home/saluser/repos/ts_config_mttcs
                         /home/saluser/.checkout_repo.sh ${WORK_BRANCHES}
                         git pull
 
@@ -77,23 +76,34 @@ pipeline {
                 }
             }
         }
-        stage('Run unit tests') {
+        stage('Install dependencies') {
             steps {
-                withEnv(["HOME=${env.WORKSPACE}"]) {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
                     sh """
                         source /home/saluser/.setup_dev.sh || echo "Loading env failed; continuing..."
                         pip install .
-                        pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT_PATH}
+                        TS_CONFIG_MTTCS_DIR=/home/saluser/repos/ts_config_mttcs/ pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT_PATH}
+                    """
+                }
+            }
+        }
+        stage('Run unit tests') {
+            steps {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
+                    sh """
+                        source /home/saluser/.setup_dev.sh || echo "Loading env failed; continuing..."
+                        setup -r .
+                        TS_CONFIG_MTTCS_DIR=/home/saluser/repos/ts_config_mttcs/ pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT_PATH}
                     """
                 }
             }
         }
         stage('Build documentation') {
             steps {
-                withEnv(["HOME=${env.WORKSPACE}"]) {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
                     sh """
                         source /home/saluser/.setup_dev.sh || echo "Loading env failed; continuing..."
-                        pip install .
+                        setup -r .
                         package-docs build
                     """
                 }
@@ -101,11 +111,11 @@ pipeline {
         }
         stage('Try to upload documentation') {
             steps {
-                withEnv(["HOME=${env.WORKSPACE}"]) {
+                withEnv(["WHOME=${env.WORKSPACE}"]) {
                     catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
                         sh '''
                             source /home/saluser/.setup_dev.sh || echo "Loading env failed; continuing..."
-                            pip install .
+                            setup -r .
                             ltd -u ${LSST_IO_CREDS_USR} -p ${LSST_IO_CREDS_PSW} upload \
                                 --product ${DOC_PRODUCT_NAME} --git-ref ${GIT_BRANCH} --dir doc/_build/html
                         '''
@@ -117,8 +127,8 @@ pipeline {
     post {
         always {
             // Change ownership of the workspace to Jenkins for clean up.
-            withEnv(["HOME=${env.WORKSPACE}"]) {
-                sh 'chown -R 1003:1003 ${HOME}/'
+            withEnv(["WHOME=${env.WORKSPACE}"]) {
+                sh 'chown -R 1003:1003 ${WHOME}/'
             }
 
             // The path of xml needed by JUnit is relative to the workspace.

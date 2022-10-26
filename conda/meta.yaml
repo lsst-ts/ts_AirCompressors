@@ -20,6 +20,7 @@ test:
     - ts-salobj {{ salobj_version }}
     - ts-utils
     - pymodbus
+    - pyserial-asyncio
   source_files:
     - python
     - tests
@@ -43,3 +44,4 @@ requirements:
     - ts-idl
     - ts-utils
     - pymodbus
+    - pyserial-asyncio

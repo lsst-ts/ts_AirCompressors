@@ -74,14 +74,15 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         mock modbus needed).
     """
 
-    version = __version__
+    enable_cmdline_state = True
     valid_simulation_modes: typing.Sequence[int] = (0, 1)
+    version = __version__
 
     def __init__(
         self,
         index: int,
         config_dir: str = None,
-        initial_state=salobj.State.DISABLED,
+        initial_state=salobj.State.STANDBY,
         override: str = "",
         simulation_mode: valid_simulation_modes = 0,
     ):

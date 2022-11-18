@@ -24,6 +24,7 @@ __all__ = ["MTAirCompressorModel"]
 import enum
 
 import pymodbus.exceptions
+import pymodbus.pdu
 from pymodbus.client.base import ModbusBaseClient
 
 
@@ -109,10 +110,12 @@ class MTAirCompressorModel:
         ModbusException
             When register cannot be set.
         """
-        result = self.connection.write_registers(address, [value], slave=self.unit)
-        if isinstance(result, pymodbus.exceptions.ModbusException):
-            raise result
-        return await result
+        result = await self.connection.write_registers(
+            address, [value], slave=self.unit
+        )
+        if isinstance(result, pymodbus.pdu.ExceptionResponse):
+            raise pymodbus.exceptions.ModbusException(str(result))
+        return result
 
     async def reset(self):
         """Reset compressor errors.
@@ -187,11 +190,12 @@ class MTAirCompressorModel:
         ModbusException
             When register(s) cannot be retrieved.
         """
-        result = self.connection.read_holding_registers(address, count, slave=self.unit)
-        if isinstance(result, pymodbus.exceptions.ModbusException):
-            raise result
-        regs = await result
-        return regs.registers
+        result = await self.connection.read_holding_registers(
+            address, count, slave=self.unit
+        )
+        if isinstance(result, pymodbus.pdu.ExceptionResponse):
+            raise pymodbus.exceptions.ModbusException(str(result))
+        return result.registers
 
     async def get_status(self):
         """Read compressor status - 3 status registers starting from address

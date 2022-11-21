@@ -58,7 +58,7 @@ class Register(enum.IntEnum):
     LOADED_HOURS = 0x3B  # 64 bit, 2 registers
     LOWEST_SERVICE_COUNTER = 0x3C
     RUN_ON_TIMER = 0x3D
-    LOADED_HOURS_50_PERECENT = 0x3E  # 64 bit, 2 registers
+    LOADED_HOURS_50_PERCENT = 0x3E  # 64 bit, 2 registers
 
     STATUS = 0x30  # flags - started, ..
     INHIBIT = 0x32  # inhibits - remote start, ..

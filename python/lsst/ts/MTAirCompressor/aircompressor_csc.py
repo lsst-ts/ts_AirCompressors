@@ -199,7 +199,13 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                 self._failed_tai is None
                 or utils.current_tai() < self._failed_tai + self.grace_period
             ):
-                self.log.error(str(exception))
+                # TimeoutError doesn't provide details, so provide them here
+                # TODO: Python 3.11 shall merge TimeoutError and
+                # asyncio.TimeoutError
+                if isinstance(exception, (asyncio.TimeoutError, TimeoutError)):
+                    self.log.error("TimeoutError. " + msg)
+                else:
+                    self.log.error(str(exception))
                 if self._failed_tai is None:
                     self.log.warning(
                         "Lost compressor connection, will try to reconnect for"
@@ -253,7 +259,10 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             await self.connect()
             if self.poll_task.done():
                 self.poll_task = asyncio.create_task(self.poll_loop())
-        except pymodbus.exceptions.ModbusException as ex:
+        except (
+            pymodbus.exceptions.ModbusException,
+            asyncio.TimeoutError,
+        ) as ex:
             await self.log_modbus_exception(ex, "Starting up:", True)
             return
 
@@ -271,7 +280,10 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                     "Compressor isn't in remote mode - cannot reset errors"
                 )
             await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
-        except pymodbus.exception.ModbusException as ex:
+        except (
+            pymodbus.exceptions.ModbusException,
+            asyncio.TimeoutError,
+        ) as ex:
             await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
 
     async def do_powerOn(self, data):
@@ -285,7 +297,10 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                     "Compressor isn't in remote mode - cannot be powered on"
                 )
             await self.log_modbus_exception(ex, "Cannot power on compressor")
-        except pymodbus.exception.ModbusException as ex:
+        except (
+            pymodbus.exceptions.ModbusException,
+            asyncio.TimeoutError,
+        ) as ex:
             await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
 
     async def do_powerOff(self, data):
@@ -298,7 +313,11 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                     "Compressor isn't in remote mode - cannot be powered off"
                 )
             await self.log_modbus_exception(ex, "Cannot power off compressor")
-        except pymodbus.exception.ModbusException as ex:
+        except (
+            pymodbus.exceptions.ModbusException,
+            asyncio.TimeoutError,
+            TimeoutError,
+        ) as ex:
             await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
 
     async def update_status(self):
@@ -495,11 +514,14 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
                 await asyncio.sleep(1)
 
-        except pymodbus.exceptions.ModbusException as ex:
+        except (
+            pymodbus.exceptions.ModbusException,
+            asyncio.TimeoutError,
+        ) as ex:
             await self.log_modbus_exception(ex)
 
         except Exception as ex:
-            await self.fault(1, f"Error in telemetry loop: {str(ex)}")
+            await self.fault(1, f"Error in telemetry loop: {ex}")
 
     async def poll_loop(self):
         while True:
@@ -522,7 +544,11 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
                 await asyncio.sleep(POLL_PERIOD)
 
-            except pymodbus.exceptions.ModbusException as ex:
+            except (
+                pymodbus.exceptions.ModbusException,
+                asyncio.TimeoutError,
+                TimeoutError,
+            ) as ex:
                 await self.log_modbus_exception(ex, "While reconnecting:")
                 await self.disconnect()
                 await asyncio.sleep(SLEEP_RECONNECT)

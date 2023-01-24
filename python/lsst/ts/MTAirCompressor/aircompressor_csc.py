@@ -473,7 +473,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             motorSpeedPercentage=analog[5],
             motorSpeedRPM=analog[6],
             motorInput=analog[7] / 10.0,
-            compressorPowerConsumption=analog[8] / 10.0,
+            # unavailable on LRS model
+            # compressorPowerConsumption=analog[8] / 10.0,
             compressorVolumePercentage=analog[9],
             compressorVolume=analog[10] / 10.0,
             groupVolume=analog[11] / 10.0,
@@ -494,7 +495,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             loadedHours=to_64(timer[2:4]),
             lowestServiceCounter=timer[4],
             runOnTimer=timer[5],
-            loadedHours50Percent=to_64(timer[6:8]),
+            # unavailable on LRS model
+            # loadedHours50Percent=to_64(timer[6:8]),
         )
 
     async def telemetry_loop(self):

@@ -274,51 +274,35 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         self.assert_enabled()
         try:
             await self.model.reset()
-        except pymodbus.exceptions.ModbusIOException as ex:
-            if ex.fcode & 0x10 == 0x10:
-                raise RuntimeError(
-                    "Compressor isn't in remote mode - cannot reset errors"
-                )
-            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
         except (
             pymodbus.exceptions.ModbusException,
             asyncio.TimeoutError,
         ) as ex:
-            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
+            self.log.error(f"Cannot reset compressor: {str(ex)}")
+            raise ex
 
     async def do_powerOn(self, data):
         """Powers on compressor."""
         self.assert_enabled()
         try:
             await self.model.power_on()
-        except pymodbus.exceptions.ModbusIOException as ex:
-            if ex.fcode & 0x10 == 0x10:
-                raise RuntimeError(
-                    "Compressor isn't in remote mode - cannot be powered on"
-                )
-            await self.log_modbus_exception(ex, "Cannot power on compressor")
         except (
             pymodbus.exceptions.ModbusException,
             asyncio.TimeoutError,
         ) as ex:
-            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
+            self.log.error(f"Cannot power on compressor: {str(ex)}")
+            raise ex
 
     async def do_powerOff(self, data):
         self.assert_enabled()
         try:
             await self.model.power_off()
-        except pymodbus.exceptions.ModbusIOException as ex:
-            if ex.fcode & 0x10 == 0x10:
-                raise RuntimeError(
-                    "Compressor isn't in remote mode - cannot be powered off"
-                )
-            await self.log_modbus_exception(ex, "Cannot power off compressor")
         except (
             pymodbus.exceptions.ModbusException,
             asyncio.TimeoutError,
-            TimeoutError,
         ) as ex:
-            await self.log_modbus_exception(ex, "Cannot reset compressor's errors")
+            self.log.error(f"Cannot powerr off compressor: {str(ex)}")
+            raise ex
 
     async def update_status(self):
         """Read compressor status - 3 status registers starting from address

@@ -269,40 +269,44 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
     async def begin_standby(self, data):
         await self.close_tasks()
 
+    def _expected_error(self, msg):
+        self.log.error(msg)
+        raise salobj.ExpectedError(msg)
+
     async def do_reset(self, data):
         """Reset compressor faults."""
         self.assert_enabled()
         try:
             await self.model.reset()
+            self.log.info("Compressor reseted.")
         except (
             pymodbus.exceptions.ModbusException,
             asyncio.TimeoutError,
         ) as ex:
-            self.log.error(f"Cannot reset compressor: {str(ex)}")
-            raise ex
+            self._expected_error(f"Cannot reset compressor: {str(ex)}")
 
     async def do_powerOn(self, data):
         """Powers on compressor."""
         self.assert_enabled()
         try:
             await self.model.power_on()
+            self.log.info("Compressor powered on.")
         except (
             pymodbus.exceptions.ModbusException,
             asyncio.TimeoutError,
         ) as ex:
-            self.log.error(f"Cannot power on compressor: {str(ex)}")
-            raise ex
+            self._expected_error(f"Cannot power on compressor: {str(ex)}")
 
     async def do_powerOff(self, data):
         self.assert_enabled()
         try:
             await self.model.power_off()
+            self.log.info("Compressor powered off.")
         except (
             pymodbus.exceptions.ModbusException,
             asyncio.TimeoutError,
         ) as ex:
-            self.log.error(f"Cannot powerr off compressor: {str(ex)}")
-            raise ex
+            self._expected_error(f"Cannot powerr off compressor: {str(ex)}")
 
     async def update_status(self):
         """Read compressor status - 3 status registers starting from address

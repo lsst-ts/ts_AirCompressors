@@ -114,6 +114,11 @@ class MTAirCompressorModel:
             address, [value], slave=self.unit
         )
         if isinstance(result, pymodbus.pdu.ExceptionResponse):
+            if result.function_code == 144:
+                raise pymodbus.exceptions.ModbusException(
+                    f"Cannot set register at address {address} to {value} "
+                    f"({value:X}), most likely compressor isn't in remote mode."
+                )
             raise pymodbus.exceptions.ModbusException(str(result))
         return result
 

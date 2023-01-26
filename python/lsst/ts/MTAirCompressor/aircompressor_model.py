@@ -114,7 +114,12 @@ class MTAirCompressorModel:
             address, [value], slave=self.unit
         )
         if isinstance(result, pymodbus.pdu.ExceptionResponse):
-            if result.function_code == 144:
+            # Slave Device Failure - https://www.simplymodbus.ca/exceptions.htm
+            # This means the register cannot be set. Most likely as it's
+            # read-only. compressor is not in remote mode.
+            # TODO replace with pymodbus constant after
+            # https://github.com/pymodbus-dev/pymodbus/issues/1300 is handled
+            if result.exception_code == 4:
                 raise pymodbus.exceptions.ModbusException(
                     f"Cannot set register at address {address} to {value} "
                     f"({value:X}), most likely compressor isn't in remote mode."

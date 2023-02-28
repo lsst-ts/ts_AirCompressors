@@ -3,9 +3,8 @@ import logging
 import socket
 import unittest
 
-from pymodbus.client.tcp import AsyncModbusTcpClient as ModbusClient
-
 from lsst.ts import MTAirCompressor
+from pymodbus.client.tcp import AsyncModbusTcpClient as ModbusClient
 
 
 class MTAirCompressorModelTestCase(unittest.IsolatedAsyncioTestCase):

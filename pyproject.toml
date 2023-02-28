@@ -17,6 +17,10 @@ run_mtaircompressor = "lsst.ts.MTAirCompressor.aircompressor_csc:run_mtaircompre
 [tool.setuptools.dynamic]
 version = { attr = "setuptools_scm.get_version" }
 
+[tool.isort]
+profile = "black"
+skip = ["__init__.py"]
+
 [tool.setuptools.packages.find]
 where = [ "python" ]
 

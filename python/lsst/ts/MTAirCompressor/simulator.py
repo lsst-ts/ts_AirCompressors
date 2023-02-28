@@ -21,12 +21,12 @@
 
 __all__ = ["create_server"]
 
-from pymodbus.server.async_io import ModbusTcpServer
 from pymodbus.datastore import (
     ModbusSequentialDataBlock,
-    ModbusSlaveContext,
     ModbusServerContext,
+    ModbusSlaveContext,
 )
+from pymodbus.server.async_io import ModbusTcpServer
 
 from .aircompressor_model import Register
 

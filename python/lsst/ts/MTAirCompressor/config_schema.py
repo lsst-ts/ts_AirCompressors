@@ -2,7 +2,6 @@ __all__ = ["CONFIG_SCHEMA"]
 
 import yaml
 
-
 CONFIG_SCHEMA = yaml.safe_load(
     """
 $schema: http://json-schema.org/draft-07/schema#

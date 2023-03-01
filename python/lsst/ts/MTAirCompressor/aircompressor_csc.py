@@ -26,22 +26,20 @@ import asyncio
 import socket
 import typing
 
+import pymodbus.exceptions
+from lsst.ts import salobj, utils
+
 # Async ModbusTcpClient is unrealible. Hopefully that will get fixed with
 # pymodbus 3.0.0 release. Use sync for now.
 # TODO DM-35334
 from pymodbus.client.tcp import AsyncModbusTcpClient as ModbusClient
-import pymodbus.exceptions
-
-from lsst.ts import salobj, utils
 
 from . import __version__
 from .aircompressor_model import MTAirCompressorModel
 from .config_schema import CONFIG_SCHEMA
 from .enums import ErrorCode
 from .simulator import create_server
-
 from .utils import status_bit_to_bools
-
 
 """Telemetry period. Telemetry shall be reported every n seconds."""
 POLL_PERIOD = 1

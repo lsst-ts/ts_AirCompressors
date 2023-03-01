@@ -1,8 +1,8 @@
-import unittest
 import pathlib
 import typing
+import unittest
 
-from lsst.ts import salobj, MTAirCompressor
+from lsst.ts import MTAirCompressor, salobj
 
 CONFIG_DIR = pathlib.Path(__file__).parent / "data" / "config"
 

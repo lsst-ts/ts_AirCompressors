@@ -32,11 +32,11 @@ from .aircompressor_model import Register
 
 
 class SimulatedHrBlock(ModbusSequentialDataBlock):
-    def __init__(self):
+    def __init__(self) -> None:
         block = [0] * 0x1E + list(range(1, 20)) + [0x01, 0x0, 0x01] + [0] * 0x120
         super().__init__(0, block)
 
-    def setValues(self, address, values):
+    def setValues(self, address: int, values: list[int]) -> None:
         # there is mismatch in indexing, + 1 is needed on Register.xxx side
         if address == Register.REMOTE_CMD + 1:
             super().setValues(
@@ -48,7 +48,7 @@ class SimulatedHrBlock(ModbusSequentialDataBlock):
         super().setValues(address, values)
 
 
-def create_server():
+def create_server() -> ModbusTcpServer:
     """Create simulator server. Uses arbitrary constants for values, please
     consult Delcos XL register map - see Register enum.
 

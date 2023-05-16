@@ -25,13 +25,13 @@ class MTAirCompressorCscTestCase(
             simulation_mode=1,
         )
 
-    async def test_standard_state_transitions(self):
+    async def test_standard_state_transitions(self) -> None:
         async with self.make_csc(index=2, initial_state=salobj.State.STANDBY):
             await self.check_standard_state_transitions(
                 enabled_commands=["powerOn", "powerOff", "reset"]
             )
 
-    async def test_bin_script(self):
+    async def test_bin_script(self) -> None:
         await self.check_bin_script(
             name="MTAirCompressor",
             exe_name="run_mtaircompressor",

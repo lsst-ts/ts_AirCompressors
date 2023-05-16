@@ -22,7 +22,7 @@
 __all__ = ["status_bit_to_bools"]
 
 
-def status_bit_to_bools(fields, value):
+def status_bit_to_bools(fields: list[str | None], value: int) -> dict[str, int]:
     """Helper function. Converts value bits into boolean fields.
 
     Parameters

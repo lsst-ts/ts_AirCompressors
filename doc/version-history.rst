@@ -4,6 +4,11 @@
 Version History
 ===============
 
+v1.3.3
+------
+
+* Don't call close_tasks on begin_standby - caused HB loss on standby
+
 v1.3.2
 ------
 

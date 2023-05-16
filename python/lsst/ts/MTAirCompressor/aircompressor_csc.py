@@ -180,13 +180,16 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
     def get_config_pkg():
         return "ts_config_mttcs"
 
-    async def close_tasks(self) -> None:
-        await super().close_tasks()
+    async def _close_own_tasks(self) -> None:
         if self.simulation_mode == 1:
             await self.simulator.shutdown()
             self.simulator_task.cancel()
         self.poll_task.cancel()
         await self.disconnect()
+
+    async def close_tasks(self) -> None:
+        await self._close_own_tasks()
+        await super().close_tasks()
 
     async def log_modbus_exception(self, exception, msg="", ignore_timeouts=False):
         if isinstance(exception, pymodbus.exceptions.ConnectionException):
@@ -265,7 +268,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             return
 
     async def begin_standby(self, data):
-        await self.close_tasks()
+        await self._close_own_tasks()
 
     def _expected_error(self, msg):
         self.log.error(msg)

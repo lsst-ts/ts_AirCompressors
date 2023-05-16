@@ -7,41 +7,42 @@ source:
   path: ../
 
 build:
-  script: python -m pip install --no-deps --ignore-installed .
   noarch: generic
+  script: {{ PYTHON }} -m pip install --no-deps --ignore-installed .
   entry_points:
-    - run_mtaircompressor = lsst.ts.MTAirCompressor.aircompressor_csc:run_mtaircompressor
+    - run_mtaircompressor = lsst.ts.MTAirCompressor:run_mtaircompressor
 
 test:
   requires:
     - ts-conda-build
-    - ts-dds
     - ts-idl {{ idl_version }}
     - ts-salobj {{ salobj_version }}
-    - ts-utils
     - pymodbus >=3
     - pyserial-asyncio
   source_files:
     - python
+    - bin
     - tests
-    - setup.cfg
     - pyproject.toml
   commands:
     - pytest
 
 requirements:
   host:
-    - python
+    - python {{ python }}
     - pip
     - setuptools_scm
     - setuptools
-    - pytest-runner
+  build:
+    - python {{ python }}
+    - setuptools_scm
+    - setuptools
+    - ts-conda-build
   run:
-    - python
+    - python {{ python }}
     - setuptools
     - setuptools_scm
-    - ts-salobj
-    - ts-idl
-    - ts-utils
+    - ts-idl {{ idl_version }}
+    - ts-salobj {{ salobj_version }}
     - pymodbus >=3
     - pyserial-asyncio

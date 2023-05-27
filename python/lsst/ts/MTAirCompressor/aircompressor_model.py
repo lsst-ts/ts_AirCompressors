@@ -90,7 +90,9 @@ class MTAirCompressorModel:
         self.connection = connection
         self.unit = unit
 
-    async def set_register(self, address, value, error_status):
+    async def set_register(
+        self, address: int, value: int, error_status: str
+    ) -> pymodbus.pdu.ModbusResponse:
         """Set ModBus register value.
 
         Parameters
@@ -127,7 +129,7 @@ class MTAirCompressorModel:
             raise pymodbus.exceptions.ModbusException(str(result))
         return result
 
-    async def reset(self):
+    async def reset(self) -> pymodbus.pdu.ModbusResponse:
         """Reset compressor errors.
 
         Returns
@@ -144,7 +146,7 @@ class MTAirCompressorModel:
             Register.RESET, 0xFF01, "Cannot reset compressor"
         )
 
-    async def power_on(self):
+    async def power_on(self) -> pymodbus.pdu.ModbusResponse:
         """Power on compressor.
 
         Returns
@@ -163,7 +165,7 @@ class MTAirCompressorModel:
             Register.REMOTE_CMD, 0xFF01, "Cannot power on compressor"
         )
 
-    async def power_off(self):
+    async def power_off(self) -> pymodbus.pdu.ModbusResponse:
         """Power off compressor.
 
         Returns
@@ -182,7 +184,9 @@ class MTAirCompressorModel:
             Register.REMOTE_CMD, 0xFF00, "Cannot power down compressor"
         )
 
-    async def get_registers(self, address, count, error_status):
+    async def get_registers(
+        self, address: int, count: int, error_status: str
+    ) -> list[int]:
         """
         Returns registers.
 
@@ -194,6 +198,11 @@ class MTAirCompressorModel:
             Number of registers to read.
         error_status : `str`
             Error status to fill in ModbusException raised on error.
+
+        Returns
+        -------
+        registers: `[int]`
+            Array with registers values.
 
         Raises
         ------
@@ -207,9 +216,14 @@ class MTAirCompressorModel:
             raise pymodbus.exceptions.ModbusException(str(result))
         return result.registers
 
-    async def get_status(self):
+    async def get_status(self) -> list[int]:
         """Read compressor status - 3 status registers starting from address
         0x30.
+
+        Returns
+        -------
+        registers: `[int]`
+            Status registers values.
 
         Raises
         ------
@@ -218,11 +232,16 @@ class MTAirCompressorModel:
         """
         return await self.get_registers(Register.STATUS, 3, "Cannot read status")
 
-    async def get_error_registers(self):
+    async def get_error_registers(self) -> list[int]:
         """Read compressor errors - 16 registers starting from address 0x63.
 
         Those are E4xx and A6xx registers, all bit masked. Please see Delcos
         manual for details.
+
+        Returns
+        -------
+        register: `[int]`
+            Error registers values.
 
         Raises
         ------
@@ -233,10 +252,15 @@ class MTAirCompressorModel:
             Register.ERROR_E400, 16, "Cannot read error registers"
         )
 
-    async def get_compressor_info(self):
+    async def get_compressor_info(self) -> list[int]:
         """Read compressor info - 23 registers starting from address 0x63.
 
         Includes software version and serial number.
+
+        Returns
+        -------
+        registers: `[int]`
+            Value of registers with compressor info.
 
         Raises
         ------
@@ -247,12 +271,17 @@ class MTAirCompressorModel:
             Register.SOFTWARE_VERSION, 23, "Cannot read compressor info"
         )
 
-    async def get_analog_data(self):
+    async def get_analog_data(self) -> list[int]:
         """Read compressor info - register 0x1E and 14 registers starting from
         address 0x22.
 
         Those form compressor telemetry - includes various measurements. See
         Register and Delcos manual for indices.
+
+        Returns
+        -------
+        registers: `[int]`
+            Value of registers with compressor analog data.
 
         Raises
         ------
@@ -265,10 +294,15 @@ class MTAirCompressorModel:
             Register.TARGET_SPEED, 14, "Cannot read analog data"
         )
 
-    async def get_timers(self):
+    async def get_timers(self) -> list[int]:
         """Read compressor timers - 8 registers starting from address 0x39.
 
         Those form compressor running hours etc.
+
+        Returns
+        -------
+        registers: `[int]`
+            Value of registers with timers data.
 
         Raises
         ------

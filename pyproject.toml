@@ -4,22 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ts-mtaircompressor"
-description = "LSST main telescope air compressor Commandable SAL Component."
+description = "LSST main telescope air compressor controller."
 license = { text = "GPL" }
 classifiers = [ "Programming Language :: Python :: 3" ]
-urls = { documentation = "https://jira.lsstcorp.org/secure/Dashboard.jspa", repository = "https://github.com/lsst-ts/ts_MTAirCompressor" }
+urls = { documentation = "https://ts-mtaircompressor.lsst.io", repository = "https://github.com/lsst-ts/ts_MTAirCompressor" }
 dynamic = [ "version" ]
 dependencies = [ "pymodbus>=3.0.0", "pyserial-asyncio" ]
 
 [project.scripts]
-run_mtaircompressor = "lsst.ts.MTAirCompressor.aircompressor_csc:run_mtaircompressor"
+run_mtaircompressor = "lsst.ts.MTAirCompressor:run_mtaircompressor"
 
 [tool.setuptools.dynamic]
 version = { attr = "setuptools_scm.get_version" }
-
-[tool.isort]
-profile = "black"
-skip = ["__init__.py"]
 
 [tool.setuptools.packages.find]
 where = [ "python" ]
@@ -33,13 +29,7 @@ __version__ = "{version}"
 """
 
 [tool.pytest.ini_options]
-addopts = "--black --flake8 --ignore-glob=*/version.py"
-flake8-ignore = ["E133", "E203", "E226", "E228", "N802", "N803", "N806", "N812", "N813", "N815", "N816", "W503"]
-flake8-max-line-length = 110
-flake8-max-doc-length = 79
 asyncio_mode = "auto"
 
 [project.optional-dependencies]
-dev = [
-  "documenteer[pipelines]",
-]
+dev = ["documenteer[pipelines]"]

@@ -238,7 +238,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         await self.evt_connectionStatus.set_write(connected=False)
         self.model = None
         if self.connection is not None:
-            await self.connection.close()
+            self.connection.close()
             self.connection = None
 
     async def end_start(self, data: salobj.type_hints.BaseMsgType) -> None:

@@ -4,6 +4,21 @@
 Version History
 ===============
 
+v1.4.2
+------
+
+* Pinned pymodbus in conda recipe.
+
+v1.4.1
+------
+
+* Adjusted to new pymodbus version, that dropped async versionn of the close call.
+
+v1.4.0
+------
+
+* Fixed standby handling. Compressor connection was not reconnected after standby transition.
+
 v1.3.3
 ------
 

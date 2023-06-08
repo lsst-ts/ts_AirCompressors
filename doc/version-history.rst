@@ -4,6 +4,11 @@
 Version History
 ===============
 
+v1.4.2
+------
+
+* Pinned pymodbus in conda recipe.
+
 v1.4.1
 ------
 

@@ -118,21 +118,29 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             "--grace-period",
             type=int,
             default=None,
-            help="TCP/IP connection grace period in seconds. Default to 60 minutes (3600 seconds)",
+            help=(
+                "TCP/IP connection grace period in seconds. Default to 60"
+                " minutes (3600 seconds)"
+            ),
         )
         parser.add_argument(
             "--host",
             type=str,
             default=None,
-            help="hostname of the compressor ModbusRTU/TCP convertor."
-            "Unless specified, m1m3cam-aircomp0X.cp.lsst.org, where X is compressor index",
+            help=(
+                "hostname of the compressor ModbusRTU/TCP convertor.Unless"
+                " specified, m1m3cam-aircomp0X.cp.lsst.org, where X is"
+                " compressor index"
+            ),
         )
         parser.add_argument(
             "--port",
             type=int,
             default=None,
-            help="TCP/IP port of the compressor ModbusRTU/TCP convertor."
-            "Defaults to 502 (default Modbus TCP/IP port)",
+            help=(
+                "TCP/IP port of the compressor ModbusRTU/TCP convertor."
+                "Defaults to 502 (default Modbus TCP/IP port)"
+            ),
         )
         parser.add_argument(
             "--unit", type=int, default=None, help="modbus unit address"
@@ -158,8 +166,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             )
         elif len(instance) > 1:
             raise RuntimeError(
-                f"Multiple configuration instances matches index {self.salinfo.index},"
-                "please check configuration file"
+                "Multiple configuration instances matches index"
+                f" {self.salinfo.index},please check configuration file"
             )
         instance = instance[0]
         if self.grace_period is None:
@@ -189,7 +197,10 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         await super().close_tasks()
 
     async def log_modbus_exception(
-        self, exception: typing.Any, msg: str = "", ignore_timeouts: bool = False
+        self,
+        exception: typing.Any,
+        msg: str = "",
+        ignore_timeouts: bool = False,
     ) -> None:
         if isinstance(exception, pymodbus.exceptions.ConnectionException):
             await self.disconnect()
@@ -527,7 +538,10 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
                     self._failed_tai = None
                 elif self.disabled_or_enabled:
                     await self.telemetry_loop()
-                elif self.summary_state in (salobj.State.STANDBY, salobj.State.FAULT):
+                elif self.summary_state in (
+                    salobj.State.STANDBY,
+                    salobj.State.FAULT,
+                ):
                     pass
                 else:
                     self.log.critical(f"Unhandled state: {self.summary_state}")

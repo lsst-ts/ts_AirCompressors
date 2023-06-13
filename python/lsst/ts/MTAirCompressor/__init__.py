@@ -20,9 +20,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 try:
-    from .version import *
+    from .version import __version__
 except ImportError:
     __version__ = "?"
 
-from .aircompressor_csc import *
-from .aircompressor_model import *
+from .aircompressor_csc import MTAirCompressorCsc, run_mtaircompressor
+from .aircompressor_model import MTAirCompressorModel

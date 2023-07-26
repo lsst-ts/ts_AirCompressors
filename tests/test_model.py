@@ -3,7 +3,7 @@ import logging
 import socket
 import unittest
 
-from lsst.ts import MTAirCompressor
+from lsst.ts import mtaircompressor
 from pymodbus.client.tcp import AsyncModbusTcpClient as ModbusClient
 
 
@@ -13,7 +13,7 @@ class MTAirCompressorModelTestCase(unittest.IsolatedAsyncioTestCase):
         self.log.addHandler(logging.StreamHandler())
         self.log.setLevel(logging.INFO)
 
-        self.simulator = MTAirCompressor.simulator.create_server()
+        self.simulator = mtaircompressor.simulator.create_server()
         self.simulator_task = asyncio.create_task(self.simulator.serve_forever())
 
         await self.simulator.serving
@@ -35,10 +35,10 @@ class MTAirCompressorModelTestCase(unittest.IsolatedAsyncioTestCase):
         self.simulator_task.cancel()
 
     async def test_get_status(self) -> None:
-        model = MTAirCompressor.MTAirCompressorModel(self.client, 1)
+        model = mtaircompressor.MTAirCompressorModel(self.client, 1)
         assert await model.get_status() == [0x01, 0x00, 0x01]
 
     async def test_analog_data(self) -> None:
-        model = MTAirCompressor.MTAirCompressorModel(self.client, 1)
+        model = mtaircompressor.MTAirCompressorModel(self.client, 1)
         analog_data = await model.get_analog_data()
         assert analog_data[0:10] == [2, 6, 7, 8, 9, 10, 11, 12, 13, 14]

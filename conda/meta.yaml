@@ -10,7 +10,7 @@ build:
   noarch: generic
   script: {{ PYTHON }} -m pip install --no-deps --ignore-installed .
   entry_points:
-    - run_mtaircompressor = lsst.ts.MTAirCompressor:run_mtaircompressor
+    - run_mtaircompressor = lsst.ts.mtaircompressor:run_mtaircompressor
 
 test:
   requires:

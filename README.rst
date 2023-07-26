@@ -1,5 +1,5 @@
 ##################
-ts_MTAirCompressor
+ts_mtaircompressor
 ##################
 
 Communication with pneumatic air compressors.

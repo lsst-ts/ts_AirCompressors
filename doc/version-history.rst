@@ -4,6 +4,12 @@
 Version History
 ===============
 
+v1.5.0
+------
+
+* timers (remaining service hours) are signed integers
+* renamed to ts_mtaircompressor
+
 v1.4.2
 ------
 

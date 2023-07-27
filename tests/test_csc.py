@@ -2,7 +2,7 @@ import pathlib
 import typing
 import unittest
 
-from lsst.ts import MTAirCompressor, salobj
+from lsst.ts import mtaircompressor, salobj
 
 CONFIG_DIR = pathlib.Path(__file__).parent / "data" / "config"
 
@@ -18,7 +18,7 @@ class MTAirCompressorCscTestCase(
         index: int = 1,
         **kwargs: typing.Any,
     ) -> None:
-        return MTAirCompressor.MTAirCompressorCsc(
+        return mtaircompressor.MTAirCompressorCsc(
             index,
             initial_state=initial_state,
             config_dir=CONFIG_DIR,

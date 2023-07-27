@@ -17,6 +17,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-from lsst.ts.MTAirCompressor import run_mtaircompressor
+from lsst.ts.mtaircompressor import run_mtaircompressor
 
 run_mtaircompressor()

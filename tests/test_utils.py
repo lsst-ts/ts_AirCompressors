@@ -1,6 +1,6 @@
 import unittest
 
-from lsst.ts.MTAirCompressor import utils
+from lsst.ts.mtaircompressor import utils
 
 
 class StatusToBoolsTestCase(unittest.TestCase):

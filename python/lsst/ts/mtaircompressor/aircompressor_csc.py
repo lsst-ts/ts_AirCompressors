@@ -95,7 +95,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
         self.grace_period: float | None = None
         self.host: str | None = None
-        self.port: int | str | None = None
+        self.port: int | None = None
         self.unit: int | None = None
 
         self.connection: ModbusClient | None = None
@@ -258,7 +258,8 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             sock = [
                 s for s in self.simulator.server.sockets if s.family == socket.AF_INET
             ][0]
-            self.host, self.port = socket.getnameinfo(sock.getsockname(), 0)
+            self.host, port = socket.getnameinfo(sock.getsockname(), 0)
+            self.port = int(port)
 
         try:
             await self.connect()

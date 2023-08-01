@@ -60,6 +60,4 @@ def create_server() -> ModbusTcpServer:
     store = ModbusSlaveContext(hr=SimulatedHrBlock())
     context = ModbusServerContext(slaves=store, single=True)
 
-    return ModbusTcpServer(
-        context, address=("", 0), reuse_address=True, reuse_port=True
-    )
+    return ModbusTcpServer(context, address=("", 0), allow_reuse_address=True)

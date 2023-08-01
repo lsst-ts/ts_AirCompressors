@@ -4,6 +4,11 @@
 Version History
 ===============
 
+v1.5.2
+------
+
+* remove reuse_addr completely
+
 v1.5.1
 ------
 

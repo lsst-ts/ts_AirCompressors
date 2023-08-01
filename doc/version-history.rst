@@ -4,6 +4,11 @@
 Version History
 ===============
 
+v1.5.1
+------
+
+* fix simulator - trivial Modbus TCP/IP server issue
+
 v1.5.0
 ------
 

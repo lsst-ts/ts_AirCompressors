@@ -17,9 +17,9 @@ class MTAirCompressorModelTestCase(unittest.IsolatedAsyncioTestCase):
         self.simulator_task = asyncio.create_task(self.simulator.serve_forever())
 
         await self.simulator.serving
-        sock = [s for s in self.simulator.server.sockets if s.family == socket.AF_INET][
-            0
-        ]
+        sock = [
+            s for s in self.simulator.transport.sockets if s.family == socket.AF_INET
+        ][0]
         host, port = socket.getnameinfo(sock.getsockname(), 0)
         assert host is not None
         assert port is not None

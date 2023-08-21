@@ -256,7 +256,9 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
             await self.simulator.serving
             sock = [
-                s for s in self.simulator.server.sockets if s.family == socket.AF_INET
+                s
+                for s in self.simulator.transport.sockets
+                if s.family == socket.AF_INET
             ][0]
             self.host, port = socket.getnameinfo(sock.getsockname(), 0)
             self.port = int(port)

@@ -25,7 +25,7 @@ test:
     - tests
     - pyproject.toml
   commands:
-    - pytest
+    - pytest -vs
 
 requirements:
   host:

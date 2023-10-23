@@ -491,7 +491,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         assert self.model is not None
         timers = await self.model.get_timers()
         decoder = BinaryPayloadDecoder.fromRegisters(
-            timers, wordorder=Endian.Big, byteorder=Endian.Big
+            timers, wordorder=Endian.BIG, byteorder=Endian.BIG
         )
 
         await self.evt_timerInfo.set_write(
@@ -527,7 +527,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
             await self.log_modbus_exception(ex)
 
         except Exception as ex:
-            await self.fault(1, f"Error in telemetry loop: {ex}")
+            await self.fault(1, f"Error in telemetry loop: {ex}, type {type(ex)}")
 
     async def poll_loop(self) -> None:
         while True:

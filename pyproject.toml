@@ -9,7 +9,7 @@ license = { text = "GPL" }
 classifiers = [ "Programming Language :: Python :: 3" ]
 urls = { documentation = "https://ts-mtaircompressor.lsst.io", repository = "https://github.com/lsst-ts/ts_mtaircompressor" }
 dynamic = [ "version" ]
-dependencies = [ "pymodbus>=3.3", "pyserial-asyncio" ]
+dependencies = [ "pymodbus>=3.5", "pyserial-asyncio" ]
 
 [project.scripts]
 run_mtaircompressor = "lsst.ts.mtaircompressor:run_mtaircompressor"

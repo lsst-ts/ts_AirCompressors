@@ -23,7 +23,6 @@ __all__ = ["MTAirCompressorCsc", "run_mtaircompressor"]
 
 import argparse
 import asyncio
-import socket
 import typing
 
 import pymodbus.exceptions
@@ -37,7 +36,7 @@ from . import __version__
 from .aircompressor_model import MTAirCompressorModel
 from .config_schema import CONFIG_SCHEMA
 from .enums import ErrorCode
-from .simulator import create_server
+from .simulator import create_server_and_run_on_background
 from .utils import status_bit_to_bools
 
 """Telemetry period. Telemetry shall be reported every n seconds."""
@@ -251,17 +250,12 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         if self.simulation_mode == 1:
             self.unit = 1
 
-            self.simulator = create_server()
-            self.simulator_task = asyncio.create_task(self.simulator.serve_forever())
-
-            await self.simulator.serving
-            sock = [
-                s
-                for s in self.simulator.transport.sockets
-                if s.family == socket.AF_INET
-            ][0]
-            self.host, port = socket.getnameinfo(sock.getsockname(), 0)
-            self.port = int(port)
+            (
+                self.simulator,
+                self.simulator_task,
+                self.host,
+                self.port,
+            ) = await create_server_and_run_on_background()
 
         try:
             await self.connect()

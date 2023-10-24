@@ -1,6 +1,4 @@
-import asyncio
 import logging
-import socket
 import unittest
 
 from lsst.ts import mtaircompressor
@@ -13,14 +11,13 @@ class MTAirCompressorModelTestCase(unittest.IsolatedAsyncioTestCase):
         self.log.addHandler(logging.StreamHandler())
         self.log.setLevel(logging.INFO)
 
-        self.simulator = mtaircompressor.simulator.create_server()
-        self.simulator_task = asyncio.create_task(self.simulator.serve_forever())
+        (
+            self.simulator,
+            self.simulator_task,
+            host,
+            port,
+        ) = await mtaircompressor.simulator.create_server_and_run_on_background()
 
-        await self.simulator.serving
-        sock = [
-            s for s in self.simulator.transport.sockets if s.family == socket.AF_INET
-        ][0]
-        host, port = socket.getnameinfo(sock.getsockname(), 0)
         assert host is not None
         assert port is not None
 

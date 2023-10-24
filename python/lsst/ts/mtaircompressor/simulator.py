@@ -19,7 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["create_server"]
+__all__ = ["create_server", "create_server_and_run_on_background"]
+
+import asyncio
+import socket
 
 from pymodbus.datastore import (
     ModbusSequentialDataBlock,
@@ -60,4 +63,35 @@ def create_server() -> ModbusTcpServer:
     store = ModbusSlaveContext(hr=SimulatedHrBlock())
     context = ModbusServerContext(slaves=store, single=True)
 
-    return ModbusTcpServer(context, address=("", 0))
+    return ModbusTcpServer(context)
+
+
+async def create_server_and_run_on_background() -> tuple[
+    ModbusTcpServer,
+    asyncio.Task,
+    str,
+    int,
+]:
+    """Create and run simulator on background.
+
+    Returns
+    -------
+    server : `ModbusTcpServer`
+        Created server instance.
+    task: `asyncio.Task`
+        Task running the server.
+    host: `str`
+        Created server IP.
+    port: `int`
+        Created server port number.
+    """
+    server = create_server()
+
+    # make sure socket is created and listen for incoming connection, so we can
+    # get it address
+    await server.transport_listen()
+
+    simulator_task = asyncio.create_task(server.serve_forever())
+    sock = [s for s in server.transport.sockets if s.family == socket.AF_INET][0]
+    host, port = socket.getnameinfo(sock.getsockname(), socket.NI_NUMERICSERV)
+    return server, simulator_task, host, int(port)

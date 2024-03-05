@@ -89,7 +89,7 @@ async def create_server_and_run_on_background() -> tuple[
 
     # make sure socket is created and listen for incoming connection, so we can
     # get it address
-    await server.transport_listen()
+    await server.listen()
 
     simulator_task = asyncio.create_task(server.serve_forever())
     sock = [s for s in server.transport.sockets if s.family == socket.AF_INET][0]

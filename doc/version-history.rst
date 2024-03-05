@@ -4,6 +4,11 @@
 Version History
 ===============
 
+v1.5.5
+------
+
+* fixes for pymodbus>=3.6
+
 v1.5.4
 ------
 

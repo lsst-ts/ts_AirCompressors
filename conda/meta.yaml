@@ -15,9 +15,9 @@ build:
 test:
   requires:
     - ts-conda-build
-    - ts-idl {{ idl_version }}
+    - ts-xml
     - ts-salobj {{ salobj_version }}
-    - pymodbus >=3.5
+    - pymodbus >=3.6
     - pyserial-asyncio
   source_files:
     - python
@@ -42,7 +42,7 @@ requirements:
     - python {{ python }}
     - setuptools
     - setuptools_scm
-    - ts-idl {{ idl_version }}
+    - ts-xml
     - ts-salobj {{ salobj_version }}
-    - pymodbus >=3.5
+    - pymodbus >=3.6
     - pyserial-asyncio

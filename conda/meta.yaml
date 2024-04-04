@@ -17,7 +17,7 @@ test:
     - ts-conda-build
     - ts-xml
     - ts-salobj {{ salobj_version }}
-    - pymodbus >=3.5
+    - pymodbus >=3.6
     - pyserial-asyncio
   source_files:
     - python
@@ -44,5 +44,5 @@ requirements:
     - setuptools_scm
     - ts-xml
     - ts-salobj {{ salobj_version }}
-    - pymodbus >=3.5
+    - pymodbus >=3.6
     - pyserial-asyncio

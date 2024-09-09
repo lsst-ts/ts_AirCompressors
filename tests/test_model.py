@@ -21,7 +21,7 @@ class MTAirCompressorModelTestCase(unittest.IsolatedAsyncioTestCase):
         assert host is not None
         assert port is not None
 
-        self.client = ModbusClient(host, port)
+        self.client = ModbusClient(host=host, port=port)
         assert self.client is not None
         await self.client.connect()
 

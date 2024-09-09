@@ -92,6 +92,13 @@ async def create_server_and_run_on_background() -> tuple[
     await server.listen()
 
     simulator_task = asyncio.create_task(server.serve_forever())
-    sock = [s for s in server.transport.sockets if s.family == socket.AF_INET][0]
-    host, port = socket.getnameinfo(sock.getsockname(), socket.NI_NUMERICSERV)
+    # the resulting object shall be asyncio.SocketTransport
+    st = [s for s in server.transport.sockets if s.family == socket.AF_INET][0]
+    if st is None:
+        raise RuntimeError(
+            "The simulator cannot get data of any connected socket. Most likely "
+            "the previous tests failed, leaving simulator server listening for "
+            "the incoming connectons."
+        )
+    host, port = socket.getnameinfo(st.getsockname(), socket.NI_NUMERICSERV)
     return server, simulator_task, host, int(port)

@@ -228,7 +228,7 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
 
     async def connect(self) -> None:
         if self.connection is None:
-            self.connection = ModbusClient(self.host, self.port)
+            self.connection = ModbusClient(host=self.host, port=self.port)
         assert self.connection is not None
         await self.connection.connect()
         if self.model is None:

@@ -10,7 +10,7 @@ classifiers = [ "Programming Language :: Python :: 3" ]
 urls = { documentation = "https://ts-mtaircompressor.lsst.io", repository = "https://github.com/lsst-ts/ts_mtaircompressor" }
 dynamic = [ "version" ]
 dependencies = [
-  "pymodbus>=3.6",
+  "pymodbus==3.7.2",
   "pyserial-asyncio",
 ]
 

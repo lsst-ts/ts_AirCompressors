@@ -7,6 +7,11 @@ Version History
 v1.5.5
 ------
 
+* fixes for new asyncio.TransportSocket, freezed pymodbus to 3.7.2 version
+
+v1.5.5
+------
+
 * fixes for pymodbus>=3.6
 
 v1.5.4

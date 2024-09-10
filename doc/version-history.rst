@@ -4,6 +4,11 @@
 Version History
 ===============
 
+v1.5.7
+------
+
+* Fixed conda build
+
 v1.5.6
 ------
 

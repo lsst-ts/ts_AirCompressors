@@ -4,6 +4,11 @@
 Version History
 ===============
 
+v1.5.8
+------
+
+* Properly retrieve signed/unsigned values
+
 v1.5.7
 ------
 

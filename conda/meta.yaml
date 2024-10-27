@@ -15,7 +15,6 @@ build:
 test:
   requires:
     - ts-conda-build ==0.4
-    - ts-idl {{ idl_version }}
     - ts-xml
     - ts-salobj {{ salobj_version }}
     - pymodbus ==3.7.2

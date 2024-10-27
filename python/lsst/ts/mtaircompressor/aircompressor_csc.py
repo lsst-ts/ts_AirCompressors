@@ -459,25 +459,31 @@ class MTAirCompressorCsc(salobj.ConfigurableCsc):
         """Read compressor analog (telemetry-worth) data."""
         assert self.model is not None
         analog = await self.model.get_analog_data()
+        # skip analog[8], Compressor power consumption, not available on the
+        # compressor
+        del analog[8]
+        decoder = BinaryPayloadDecoder.fromRegisters(
+            analog, wordorder=Endian.BIG, byteorder=Endian.BIG
+        )
 
         await self.tel_analogData.set_write(
             force_output=True,
-            waterLevel=analog[0],
-            targetSpeed=analog[1],
-            motorCurrent=analog[2] / 10.0,
-            heatsinkTemperature=analog[3],
-            dclinkVoltage=analog[4],
-            motorSpeedPercentage=analog[5],
-            motorSpeedRPM=analog[6],
-            motorInput=analog[7] / 10.0,
-            # unavailable on LRS model
-            # compressorPowerConsumption=analog[8] / 10.0,
-            compressorVolumePercentage=analog[9],
-            compressorVolume=analog[10] / 10.0,
-            groupVolume=analog[11] / 10.0,
-            stage1OutputPressure=analog[12],
-            linePressure=analog[13],
-            stage1OutputTemperature=analog[14],
+            waterLevel=decoder.decode_16bit_int(),
+            targetSpeed=decoder.decode_16bit_uint(),
+            motorCurrent=decoder.decode_16bit_uint() / 10.0,
+            heatsinkTemperature=decoder.decode_16bit_int(),
+            dclinkVoltage=decoder.decode_16bit_uint(),
+            motorSpeedPercentage=decoder.decode_16bit_uint(),
+            motorSpeedRPM=decoder.decode_16bit_uint(),
+            motorInput=decoder.decode_16bit_uint() / 10.0,
+            # unavailable on LRS model - see above for analog reduction
+            # compressorPowerConsumption=decoder.decode_16bit_uint() / 10.0,
+            compressorVolumePercentage=decoder.decode_16bit_uint(),
+            compressorVolume=decoder.decode_16bit_uint() / 10.0,
+            groupVolume=decoder.decode_16bit_uint() / 10.0,
+            stage1OutputPressure=decoder.decode_16bit_int(),
+            linePressure=decoder.decode_16bit_int(),
+            stage1OutputTemperature=decoder.decode_16bit_int(),
         )
 
     async def update_timer(self) -> None:
